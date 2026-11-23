@@ -1,0 +1,157 @@
+{% extends 'shared/base.html' %}
+{% block title %}{{ course.name }} · Quizroom{% endblock %}
+{% block page_label %}Course Details{% endblock %}
+{% block content %}
+<div class="page-heading">
+  <div>
+    <h1>{{ course.name }}</h1>
+    <p>{{ course.description|default:'Course details, enrolled students, and associated quizzes.' }}</p>
+  </div>
+  <div class="d-flex gap-2">
+    <a href="{% url 'courses:list' %}" class="btn btn-outline-secondary">
+      <i class="bi bi-arrow-left"></i> All courses
+    </a>
+    {% if user.role == 'FACULTY' %}
+      <a href="{% url 'courses:edit' course.pk %}" class="btn btn-outline-primary">
+        <i class="bi bi-pencil-square"></i> Edit course
+      </a>
+      <a href="{% url 'courses:delete' course.pk %}" class="btn btn-outline-danger">
+        <i class="bi bi-trash"></i> Delete course
+      </a>
+      <a href="{% url 'quizzes:create' %}" class="btn btn-primary">
+        <i class="bi bi-plus-lg"></i> Build quiz
+      </a>
+    {% endif %}
+  </div>
+</div>
+
+<section class="surface mb-4">
+  <div class="row g-3">
+    <div class="col-sm-6">
+      <div class="small text-secondary fw-semibold text-uppercase">Instructor</div>
+      <div class="fw-bold fs-5 mt-1 d-flex align-items-center gap-2">
+        <i class="bi bi-person-badge text-teal"></i>
+        {{ course.faculty.get_full_name|default:course.faculty.username }}
+      </div>
+      <div class="small text-muted">{{ course.faculty.email|default:'' }}</div>
+    </div>
+    <div class="col-sm-6">
+      <div class="small text-secondary fw-semibold text-uppercase">Enrolled Students</div>
+      <div class="fw-bold fs-5 mt-1 d-flex align-items-center gap-2">
+        <i class="bi bi-people text-teal"></i>
+        {{ enrolled_student_count }} student{{ enrolled_student_count|pluralize }}
+      </div>
+    </div>
+  </div>
+
+  {% if user.role != 'STUDENT' and course.students.exists %}
+    <div class="mt-4 pt-3 border-top">
+      <div class="small text-secondary fw-semibold text-uppercase mb-2">Class Roster</div>
+      <div class="d-flex flex-wrap gap-2">
+        {% for student in course.students.all %}
+          <span class="user-badge">
+            <i class="bi bi-mortarboard"></i>
+            {{ student.get_full_name|default:student.username }}
+          </span>
+        {% endfor %}
+      </div>
+    </div>
+  {% endif %}
+
+  {% if user.role == 'FACULTY' and course.admin_suggestion %}
+    <div class="alert alert-info mt-4 mb-0" role="status">
+      <strong>Correction requested by admin</strong>
+      <p class="mb-0 mt-1">{{ course.admin_suggestion|linebreaksbr }}</p>
+    </div>
+  {% endif %}
+
+  {% if user.role == 'ADMIN' or user.is_superuser %}
+    <div class="mt-4 pt-3 border-top d-flex flex-wrap align-items-start gap-3">
+      {% if not course.is_approved %}
+        <form method="post" action="{% url 'courses:review' course.pk %}">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="approve">
+          <button type="submit" class="btn btn-primary">
+            <i class="bi bi-check-lg"></i> Approve course
+          </button>
+        </form>
+      {% else %}
+        <span class="status-badge success"><i class="bi bi-check-circle"></i> Course approved</span>
+      {% endif %}
+      <form method="post" action="{% url 'courses:review' course.pk %}" class="flex-grow-1" style="min-width: min(100%, 20rem);">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="suggest">
+        <label for="admin-suggestion" class="form-label fw-semibold">Suggest a correction</label>
+        <textarea id="admin-suggestion" name="admin_suggestion" class="form-control" rows="3" required placeholder="Describe the information the faculty member should correct.">{{ course.admin_suggestion }}</textarea>
+        <button type="submit" class="btn btn-outline-primary mt-2">
+          <i class="bi bi-send"></i> Send suggestion
+        </button>
+      </form>
+    </div>
+  {% endif %}
+</section>
+
+<div class="page-heading">
+  <div>
+    <h2 class="h4 mb-0 fw-bold">Course Quizzes</h2>
+    <p class="small text-muted mb-0">Quizzes prepared for this course curriculum.</p>
+  </div>
+</div>
+
+<section class="surface p-0 overflow-hidden">
+  <div class="list-group list-group-flush">
+    {% for quiz in course.quizzes.all %}
+      <div class="list-group-item d-flex justify-content-between align-items-center p-3">
+        <div>
+          <div class="fw-bold fs-6">{{ quiz.title }}</div>
+          <div class="small text-secondary mt-1">
+            <i class="bi bi-clock me-1"></i>{{ quiz.time_limit_minutes }} mins
+            <span class="mx-1">·</span>
+            <i class="bi bi-question-circle me-1"></i>{{ quiz.questions.count }} question{{ quiz.questions.count|pluralize }}
+            <span class="mx-1">·</span>
+            {% if quiz.is_published %}
+              <span class="status-badge success"><i class="bi bi-check-circle"></i> Published</span>
+            {% else %}
+              <span class="status-badge neutral"><i class="bi bi-file-earmark"></i> Draft</span>
+            {% endif %}
+          </div>
+        </div>
+        <div class="d-flex gap-2 align-items-center">
+          {% if quiz.is_published and user.role == 'STUDENT' %}
+            {% if quiz.pk in attempted_quiz_ids %}
+              <a class="btn btn-sm btn-outline-secondary" href="{% url 'grading:results' %}">
+                <i class="bi bi-check2"></i> Submitted
+              </a>
+            {% else %}
+              <a class="btn btn-sm btn-primary" href="{% url 'grading:take' quiz.pk %}">
+                <i class="bi bi-play-fill"></i> Take quiz
+              </a>
+            {% endif %}
+          {% endif %}
+          {% if not quiz.is_published and user.role != 'STUDENT' %}
+            <form method="post" action="{% url 'quizzes:publish' quiz.pk %}" class="d-inline">
+              {% csrf_token %}
+              <button class="btn btn-sm btn-outline-primary" type="submit">
+                <i class="bi bi-upload"></i> Publish
+              </button>
+            </form>
+          {% endif %}
+        </div>
+      </div>
+    {% empty %}
+      <div class="empty-state py-4">
+        <div class="empty-state-icon"><i class="bi bi-journal-x"></i></div>
+        <h2>No quizzes created yet</h2>
+        <p class="mb-0">When quizzes are prepared for this course, they will appear here.</p>
+        {% if user.role != 'STUDENT' %}
+          <div class="mt-3">
+            <a class="btn btn-sm btn-primary" href="{% url 'quizzes:create' %}">
+              <i class="bi bi-plus-lg"></i> Build a quiz
+            </a>
+          </div>
+        {% endif %}
+      </div>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}

@@ -1,0 +1,314 @@
+{% extends 'shared/base.html' %}
+{% block title %}Overview · Quizroom{% endblock %}
+{% block page_label %}Dashboard Overview{% endblock %}
+{% block content %}
+<div class="page-heading">
+  <div>
+    <h1>Welcome back, {{ user.first_name|default:user.username }}!</h1>
+    <p>
+      {% if user.role == 'STUDENT' %}
+        Explore your enrolled courses, attempt published quizzes, and track your grading progress.
+      {% elif user.role == 'FACULTY' %}
+        View portal courses and quizzes, manage your own content, and grade incoming student submissions.
+      {% else %}
+        Oversee system users, maintain courses, and monitor platform grading progress.
+      {% endif %}
+    </p>
+  </div>
+</div>
+
+{% if user.role == 'STUDENT' %}
+  <section class="quiz-intro mb-4">
+    <div class="row align-items-center g-3">
+      <div class="col-lg">
+        <h2 class="h4 fw-bold mb-1">Ready for your next quiz?</h2>
+        <p class="text-secondary mb-0">Browse through available course quizzes and test your knowledge.</p>
+      </div>
+      <div class="col-lg-auto">
+        <a class="btn btn-primary px-4 py-2" href="{% url 'quizzes:list' %}">
+          <i class="bi bi-play-circle"></i> View Available Quizzes
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <div class="dashboard-grid mb-4">
+    <div class="metric-card">
+      <div class="metric-card-header">
+        <span class="metric-label">Available Courses</span>
+        <div class="metric-icon-wrap"><i class="bi bi-mortarboard"></i></div>
+      </div>
+      <strong class="metric-value">{{ course_count }}</strong>
+      <span class="metric-detail">Courses active in the portal</span>
+    </div>
+    <div class="metric-card">
+      <div class="metric-card-header">
+        <span class="metric-label">Published Quizzes</span>
+        <div class="metric-icon-wrap"><i class="bi bi-card-checklist"></i></div>
+      </div>
+      <strong class="metric-value">{{ quiz_count }}</strong>
+      <span class="metric-detail">Available to attempt now</span>
+    </div>
+    <div class="metric-card">
+      <div class="metric-card-header">
+        <span class="metric-label">Submissions Pending</span>
+        <div class="metric-icon-wrap"><i class="bi bi-hourglass-split"></i></div>
+      </div>
+      <strong class="metric-value">{{ pending_count }}</strong>
+      <span class="metric-detail">Awaiting faculty grade release</span>
+    </div>
+  </div>
+
+  <section class="surface">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <div>
+        <h2 class="h5 mb-0 fw-bold">Recent Submissions</h2>
+        <p class="text-secondary small mb-0">Your recently completed quiz attempts.</p>
+      </div>
+      <a class="btn btn-sm btn-outline-primary" href="{% url 'grading:results' %}">
+        View all <i class="bi bi-arrow-right"></i>
+      </a>
+    </div>
+    {% if recent_attempts %}
+      <div class="table-responsive">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Quiz</th>
+              <th>Submitted</th>
+              <th>Result</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for attempt in recent_attempts %}
+              <tr>
+                <td class="fw-semibold">{{ attempt.quiz.title }}</td>
+                <td class="text-secondary">{{ attempt.started_at|date:'M j, Y · g:i A' }}</td>
+                <td>
+                  {% if attempt.is_released %}
+                    {% if attempt.current_score > 0 %}
+                      <span class="submission-state released"><i class="bi bi-check-circle-fill"></i> Score: {{ attempt.current_score }} pts</span>
+                    {% else %}
+                      <span class="submission-state failed" style="background:#fef2f2!important;color:#b91c1c!important;border:1px solid #fecaca!important;"><i class="bi bi-x-circle-fill"></i> Score: {{ attempt.current_score }} pts</span>
+                    {% endif %}
+                  {% else %}
+                    <span class="submission-state pending"><i class="bi bi-clock"></i> In review</span>
+                  {% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="empty-state py-4">
+        <p class="mb-0 text-muted">You haven't submitted any quizzes yet. <a href="{% url 'quizzes:list' %}">Take your first quiz</a>!</p>
+      </div>
+    {% endif %}
+  </section>
+
+{% elif user.role == 'FACULTY' %}
+  <section class="quiz-intro mb-4">
+    <div class="row align-items-center g-3">
+      <div class="col-lg">
+        <h2 class="h4 fw-bold mb-1">Review Student Work</h2>
+        <p class="text-secondary mb-0">Review submissions from quizzes across the portal, including admin-created quizzes.</p>
+      </div>
+      <div class="col-lg-auto">
+        <a class="btn btn-primary px-4 py-2" href="{% url 'grading:attempts' %}">
+          <i class="bi bi-pencil-square"></i> Review Submissions
+          {% if pending_count %}
+            <span class="badge bg-white text-dark ms-1">{{ pending_count }}</span>
+          {% endif %}
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <div class="dashboard-grid mb-4">
+    <div class="metric-card">
+      <div class="metric-card-header">
+        <span class="metric-label">My Courses</span>
+        <div class="metric-icon-wrap"><i class="bi bi-journal-bookmark"></i></div>
+      </div>
+      <strong class="metric-value">{{ course_count }}</strong>
+      <span class="metric-detail">Courses you created</span>
+    </div>
+    <div class="metric-card">
+      <div class="metric-card-header">
+        <span class="metric-label">Portal Quizzes</span>
+        <div class="metric-icon-wrap"><i class="bi bi-card-checklist"></i></div>
+      </div>
+      <strong class="metric-value">{{ quiz_count }}</strong>
+      <span class="metric-detail">All draft and published quizzes</span>
+    </div>
+    <div class="metric-card">
+      <div class="metric-card-header">
+        <span class="metric-label">Submissions Queue</span>
+        <div class="metric-icon-wrap"><i class="bi bi-clock-history"></i></div>
+      </div>
+      <strong class="metric-value">{{ pending_count }}</strong>
+      <span class="metric-detail">Needing review or release</span>
+    </div>
+  </div>
+
+  <section class="surface mb-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <div>
+        <h2 class="h5 mb-0 fw-bold">My Courses</h2>
+        <p class="text-secondary small mb-0">Edit course details or remove courses you no longer teach.</p>
+      </div>
+      <a class="btn btn-sm btn-outline-primary" href="{% url 'courses:list' %}">
+        View all <i class="bi bi-arrow-right"></i>
+      </a>
+    </div>
+    {% if owned_courses %}
+      <div class="table-responsive">
+        <table class="table mb-0">
+          <thead>
+            <tr>
+              <th>Course</th>
+              <th>Status</th>
+              <th class="text-end">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for course in owned_courses %}
+              <tr>
+                <td>
+                  <a class="fw-semibold text-decoration-none" href="{% url 'courses:detail' course.pk %}">
+                    {{ course.name }}
+                  </a>
+                  <div class="small text-secondary">{{ course.enrolled_student_count }} enrolled student{{ course.enrolled_student_count|pluralize }}</div>
+                </td>
+                <td>
+                  {% if course.is_approved %}
+                    <span class="status-badge success"><i class="bi bi-check-circle"></i> Approved</span>
+                  {% else %}
+                    <span class="status-badge pending"><i class="bi bi-hourglass-split"></i> Awaiting review</span>
+                  {% endif %}
+                </td>
+                <td class="text-end text-nowrap">
+                  <a class="btn btn-sm btn-outline-primary" href="{% url 'courses:edit' course.pk %}">
+                    <i class="bi bi-pencil-square"></i> Edit
+                  </a>
+                  <a class="btn btn-sm btn-outline-danger" href="{% url 'courses:delete' course.pk %}">
+                    <i class="bi bi-trash"></i> Delete
+                  </a>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="empty-state py-4">
+        <p class="mb-3 text-muted">You haven't created a course yet.</p>
+        <a class="btn btn-sm btn-primary" href="{% url 'courses:create' %}">
+          <i class="bi bi-plus-circle"></i> Create course
+        </a>
+      </div>
+    {% endif %}
+  </section>
+
+  <section class="surface">
+    <h2 class="h5 mb-3 fw-bold">Quick Teaching Shortcuts</h2>
+    <div class="d-flex flex-wrap gap-2">
+      <a class="btn btn-outline-primary" href="{% url 'courses:create' %}">
+        <i class="bi bi-plus-circle"></i> Create Course
+      </a>
+      <a class="btn btn-outline-primary" href="{% url 'questions:create' %}">
+        <i class="bi bi-patch-question"></i> Add Question
+      </a>
+      <a class="btn btn-outline-primary" href="{% url 'quizzes:create' %}">
+        <i class="bi bi-ui-checks-grid"></i> Build Quiz
+      </a>
+      <a class="btn btn-outline-primary" href="{% url 'grading:attempts' %}">
+        <i class="bi bi-clipboard-check"></i> Grading Queue
+      </a>
+    </div>
+  </section>
+
+{% else %}
+  <section class="quiz-intro mb-4">
+    <div class="row align-items-center g-3">
+      <div class="col-lg">
+        <h2 class="h4 fw-bold mb-1">Portal Administration</h2>
+        <p class="text-secondary mb-0">Oversee user accounts, course offerings, and platform activity.</p>
+      </div>
+      <div class="col-lg-auto">
+        <a class="btn btn-primary px-4 py-2" href="{% url 'users:list' %}">
+          <i class="bi bi-people"></i> Manage Users
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <div class="dashboard-grid mb-4">
+    <div class="metric-card">
+      <div class="metric-card-header">
+        <span class="metric-label">User Accounts</span>
+        <div class="metric-icon-wrap"><i class="bi bi-people"></i></div>
+      </div>
+      <strong class="metric-value">{{ user_count }}</strong>
+      <span class="metric-detail">Registered portal users</span>
+    </div>
+    <div class="metric-card">
+      <div class="metric-card-header">
+        <span class="metric-label">Total Courses</span>
+        <div class="metric-icon-wrap"><i class="bi bi-journal-text"></i></div>
+      </div>
+      <strong class="metric-value">{{ course_count }}</strong>
+      <span class="metric-detail">Across all departments</span>
+    </div>
+    <div class="metric-card">
+      <div class="metric-card-header">
+        <span class="metric-label">Faculty</span>
+        <div class="metric-icon-wrap"><i class="bi bi-person-workspace"></i></div>
+      </div>
+      <strong class="metric-value">{{ faculty_count }}</strong>
+      <span class="metric-detail">Registered faculty members</span>
+    </div>
+  </div>
+
+  <section class="surface">
+    <h2 class="h5 mb-3 fw-bold">Admin Actions</h2>
+    <div class="d-flex flex-wrap gap-2">
+      <a class="btn btn-outline-primary" href="{% url 'users:create' %}">
+        <i class="bi bi-person-plus"></i> Create User
+      </a>
+      <a class="btn btn-outline-primary" href="{% url 'courses:list' %}">
+        <i class="bi bi-journal-check"></i> Review Courses
+      </a>
+    </div>
+  </section>
+
+  <section class="surface mt-4">
+    <h2 class="h5 mb-3 fw-bold">Faculty Information</h2>
+    {% if faculty %}
+      <div class="table-responsive">
+        <table class="table mb-0">
+          <thead>
+            <tr>
+              <th>Faculty member</th>
+              <th>Email</th>
+              <th class="text-end">Courses</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for member in faculty %}
+              <tr>
+                <td class="fw-semibold">{{ member.get_full_name|default:member.username }}</td>
+                <td class="text-secondary">{{ member.email|default:'—' }}</td>
+                <td class="text-end">{{ member.course_count }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <p class="text-secondary mb-0">No faculty accounts have been added yet.</p>
+    {% endif %}
+  </section>
+{% endif %}
+{% endblock %}

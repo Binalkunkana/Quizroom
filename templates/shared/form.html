@@ -1,0 +1,146 @@
+{% extends 'shared/base.html' %}
+{% block title %}{{ title }} · Quizroom{% endblock %}
+{% block page_label %}{{ title }}{% endblock %}
+{% block content %}
+<div class="page-heading">
+  <div>
+    <h1>{{ title }}</h1>
+    <p>Fill in the required information below to save your changes.</p>
+  </div>
+</div>
+
+<section class="surface form-surface">
+  {% if title == 'Create quiz' and not has_courses %}
+    <div class="alert alert-warning d-flex align-items-center gap-2 mb-4">
+      <i class="bi bi-exclamation-triangle-fill flex-shrink-0"></i>
+      <div>
+        <strong>No courses available.</strong> You must create a course first before building quizzes.
+        <div class="mt-2"><a class="btn btn-sm btn-outline-primary" href="{% url 'courses:create' %}"><i class="bi bi-plus-lg"></i> Create a course</a></div>
+      </div>
+    </div>
+  {% endif %}
+
+  {% if title == 'Create quiz' and has_courses and not has_questions %}
+    <div class="alert alert-info d-flex align-items-center gap-2 mb-4">
+      <i class="bi bi-info-circle-fill flex-shrink-0"></i>
+      <div>
+        <strong>No questions available yet.</strong> Add questions to your question bank first so you can select them here.
+        <div class="mt-2"><a class="btn btn-sm btn-outline-primary" href="{% url 'questions:create' %}"><i class="bi bi-plus-lg"></i> Create a question</a></div>
+      </div>
+    </div>
+  {% endif %}
+
+  <form method="post" novalidate>
+    {% csrf_token %}
+    {% if form.non_field_errors %}
+      <div class="alert alert-danger mb-4">{{ form.non_field_errors }}</div>
+    {% endif %}
+
+    {% for field in form %}
+      <div class="mb-3 field-container-{{ field.name }}{% if field.name == 'option_1' or field.name == 'option_2' or field.name == 'option_3' or field.name == 'option_4' or field.name == 'correct_options' %} question-choice-field{% elif field.name == 'blank_answer' %} question-blank-field{% elif field.name == 'correct_tf' %} question-tf-field{% endif %}">
+        {% if field.field.widget.input_type == 'checkbox' and not field.field.choices %}
+          <div class="form-check">
+            {{ field }}
+            <label class="form-check-label fw-semibold" for="{{ field.id_for_label }}">{{ field.label }}</label>
+          </div>
+        {% else %}
+          <div class="d-flex justify-content-between align-items-center mb-1">
+            <label class="form-label fw-semibold mb-0" for="{{ field.id_for_label }}">{{ field.label }}</label>
+            {% if field.name == 'questions' %}
+              <a class="btn btn-sm btn-outline-primary" href="{% url 'questions:create' %}">
+                <i class="bi bi-plus-circle"></i> Add new question
+              </a>
+            {% endif %}
+          </div>
+          {% if field.name == 'questions' or field.name == 'students' %}
+            {% if field.name == 'students' %}
+              <div class="form-check mb-2">
+                <input class="form-check-input" type="checkbox" id="select-all-students">
+                <label class="form-check-label fw-semibold" for="select-all-students">Select all students</label>
+              </div>
+            {% endif %}
+            <div class="question-checkbox-list">
+              {{ field }}
+            </div>
+          {% else %}
+            {{ field }}
+          {% endif %}
+        {% endif %}
+
+        {% if field.help_text %}
+          <div class="helptext">{{ field.help_text }}</div>
+        {% endif %}
+        {% if field.errors %}
+          <div class="text-danger small mt-1">{{ field.errors }}</div>
+        {% endif %}
+      </div>
+    {% endfor %}
+
+    {% if extra_role_field %}
+      <div class="mb-3">
+        <label class="form-label fw-semibold" for="id_role">User Role</label>
+        <select class="form-select" id="id_role" name="role">
+          <option value="STUDENT">Student</option>
+          <option value="FACULTY">Faculty</option>
+          <option value="ADMIN">Admin</option>
+        </select>
+      </div>
+    {% endif %}
+
+    <div class="d-flex gap-2 pt-3 border-top mt-4">
+      <button class="btn btn-primary" type="submit">
+        <i class="bi bi-check2"></i> Save changes
+      </button>
+      <button class="btn btn-outline-secondary" type="button" onclick="history.back()">
+        Cancel
+      </button>
+    </div>
+  </form>
+</section>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const kindSelect = document.getElementById('id_kind');
+    const choiceFields = document.querySelectorAll('.question-choice-field');
+    const blankField = document.querySelector('.question-blank-field');
+    const trueFalseField = document.querySelector('.question-tf-field');
+    if (kindSelect && choiceFields.length) {
+      function updateChoicesVisibility() {
+        const kind = kindSelect.value;
+        choiceFields.forEach(field => field.style.display = ['MCQ', 'MULTI_SELECT'].includes(kind) ? 'block' : 'none');
+        if (blankField) blankField.style.display = kind === 'BLANKS' ? 'block' : 'none';
+        if (trueFalseField) trueFalseField.style.display = kind === 'TRUE_FALSE' ? 'block' : 'none';
+        const answerLabel = document.querySelector('.field-container-correct_options label.form-label');
+        if (answerLabel) answerLabel.textContent = kind === 'MULTI_SELECT' ? 'Correct answers' : 'Correct answer';
+        for (let i = 1; i <= 4; i++) {
+          const option = document.getElementById(`id_option_${i}`);
+          const checkboxLabel = document.querySelector(`#id_correct_options_${i - 1}`)?.closest('label');
+          if (option && checkboxLabel) checkboxLabel.lastChild.textContent = option.value || ` Option ${i}`;
+        }
+      }
+      kindSelect.addEventListener('change', updateChoicesVisibility);
+      document.querySelectorAll('[id^="id_option_"]').forEach(option => option.addEventListener('input', updateChoicesVisibility));
+      updateChoicesVisibility();
+    }
+
+    const selectAllStudents = document.getElementById('select-all-students');
+    if (selectAllStudents) {
+      const studentCheckboxes = Array.from(document.querySelectorAll('input[name="students"]'));
+      function updateSelectAllStudents() {
+        const selectedCount = studentCheckboxes.filter(checkbox => checkbox.checked).length;
+        selectAllStudents.checked = studentCheckboxes.length > 0 && selectedCount === studentCheckboxes.length;
+        selectAllStudents.indeterminate = selectedCount > 0 && selectedCount < studentCheckboxes.length;
+      }
+
+      selectAllStudents.addEventListener('change', function() {
+        studentCheckboxes.forEach(checkbox => {
+          checkbox.checked = selectAllStudents.checked;
+        });
+        selectAllStudents.indeterminate = false;
+      });
+      studentCheckboxes.forEach(checkbox => checkbox.addEventListener('change', updateSelectAllStudents));
+      updateSelectAllStudents();
+    }
+  });
+</script>
+{% endblock %}

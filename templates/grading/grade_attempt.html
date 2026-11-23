@@ -1,0 +1,113 @@
+{% extends 'shared/base.html' %}
+{% block title %}Grade: {{ attempt.quiz.title }} · Quizroom{% endblock %}
+{% block page_label %}Grade Submission{% endblock %}
+{% block content %}
+<div class="page-heading">
+  <div>
+    <h1>Review & Grade Submission</h1>
+    <p>Student: <strong>{{ attempt.student.get_full_name|default:attempt.student.username }}</strong> · {{ attempt.quiz.title }}</p>
+  </div>
+  <a href="{% url 'grading:attempts' %}" class="btn btn-outline-secondary">
+    <i class="bi bi-arrow-left"></i> Back to submissions
+  </a>
+</div>
+
+<div class="quiz-intro mb-4">
+  <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+    <div>
+      <strong class="d-flex align-items-center gap-2 fs-6">
+        <i class="bi bi-journal-check text-teal"></i> {{ attempt.quiz.course.name }}
+      </strong>
+      <p class="text-secondary mb-0 mt-1">Submitted on {{ attempt.started_at|date:'M j, Y · g:i A' }}. Score each question and release when ready.</p>
+    </div>
+    <span class="quiz-progress-label">
+      <i class="bi bi-list-ol"></i> {{ answers|length }} question{{ answers|length|pluralize }}
+    </span>
+  </div>
+</div>
+
+<form method="post">
+  {% csrf_token %}
+  {% for answer in answers %}
+    <fieldset class="quiz-question">
+      <div class="d-flex justify-content-between align-items-start gap-2 mb-3">
+        <legend class="mb-0">
+          <span class="question-number">{{ forloop.counter|stringformat:'02d' }}</span>
+          <span>{{ answer.question.text }}</span>
+        </legend>
+        <span class="badge text-bg-light border flex-shrink-0 ms-2">
+          Max: {{ answer.question.points }} pt{{ answer.question.points|pluralize }}
+        </span>
+      </div>
+
+      {% if answer.question.kind == 'MCQ' %}
+        <div class="answer-review mb-3">
+          <div class="small text-secondary fw-semibold text-uppercase mb-2">Student's Selection</div>
+          <div class="mb-3">
+            {% if answer.selected_choice %}
+              <div class="d-flex align-items-center gap-2">
+                {% if answer.selected_choice.is_correct %}
+                  <span class="badge bg-success-subtle text-success border border-success-subtle p-2 fs-6">
+                    <i class="bi bi-check-circle-fill me-1"></i> {{ answer.selected_choice.text }} (Correct)
+                  </span>
+                {% else %}
+                  <span class="badge bg-danger-subtle text-danger border border-danger-subtle p-2 fs-6">
+                    <i class="bi bi-x-circle-fill me-1"></i> {{ answer.selected_choice.text }} (Incorrect)
+                  </span>
+                {% endif %}
+              </div>
+            {% else %}
+              <span class="badge bg-light text-secondary border p-2">No option selected</span>
+            {% endif %}
+          </div>
+
+          <div class="small text-secondary fw-semibold text-uppercase mb-1">Correct Answer</div>
+          <div>
+            {% for choice in answer.question.choices.all %}
+              {% if choice.is_correct %}
+                <span class="fw-semibold text-success d-inline-flex align-items-center gap-1">
+                  <i class="bi bi-check2"></i> {{ choice.text }}
+                </span>
+              {% endif %}
+            {% endfor %}
+          </div>
+        </div>
+      {% else %}
+        <div class="answer-review mb-3">
+          <div class="small text-secondary fw-semibold text-uppercase mb-2">Student's Written Response</div>
+          <div class="answer-copy p-2 bg-white rounded border">
+            {{ answer.written_answer|linebreaksbr|default:'(No answer submitted)' }}
+          </div>
+        </div>
+      {% endif %}
+
+      <div class="d-flex align-items-center gap-3 mt-3">
+        <label class="form-label fw-bold mb-0 text-nowrap" for="points_{{ answer.id }}">
+          Awarded Points (0 - {{ answer.question.points }}):
+        </label>
+        <div style="max-width: 130px;">
+          <input class="form-control fw-bold text-center" type="number" min="0" max="{{ answer.question.points }}" id="points_{{ answer.id }}" name="points_{{ answer.id }}" value="{{ answer.awarded_points }}" required>
+        </div>
+      </div>
+    </fieldset>
+  {% empty %}
+    <div class="alert alert-info">There are no submitted answers in this attempt.</div>
+  {% endfor %}
+
+  {% if answers %}
+    <div class="grading-sticky d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-3 mt-4">
+      <span class="small text-secondary d-flex align-items-center gap-1">
+        <i class="bi bi-info-circle"></i> Once released, the grade and feedback become visible to {{ attempt.student.username }}.
+      </span>
+      <div class="d-flex flex-wrap gap-2">
+        <button class="btn btn-outline-secondary" name="release" value="no" type="submit">
+          <i class="bi bi-save"></i> Save for Later
+        </button>
+        <button class="btn btn-primary" name="release" value="yes" type="submit">
+          <i class="bi bi-check-all"></i> Save & Release Grade
+        </button>
+      </div>
+    </div>
+  {% endif %}
+</form>
+{% endblock %}

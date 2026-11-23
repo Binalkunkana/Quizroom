@@ -1,0 +1,278 @@
+{% extends 'shared/base.html' %}
+{% block title %}{{ title }} · Quizroom{% endblock %}
+{% block page_label %}{{ title }}{% endblock %}
+{% block content %}
+<div class="page-heading">
+  <div>
+    <h1>{{ title }}</h1>
+    <p>Browse and manage all {{ title|lower }} in your learning portal.</p>
+  </div>
+  {% if create_url %}
+    <a class="btn btn-primary" href="{% url create_url %}">
+      <i class="bi bi-plus-lg"></i>
+      {% if title == 'Quizzes' %}Create quiz{% elif title == 'Courses' %}Create course{% elif title == 'Questions' %}Create question{% elif title == 'Users' %}Create user{% else %}Create new{% endif %}
+    </a>
+  {% endif %}
+</div>
+
+{% if title == 'My submissions' %}
+  <div class="dashboard-grid mb-4">
+    <div class="metric-card">
+      <div class="metric-card-header">
+        <span class="metric-label">Total marks</span>
+        <div class="metric-icon-wrap"><i class="bi bi-award"></i></div>
+      </div>
+      <strong class="metric-value">{{ total_marks }}</strong>
+      <span class="metric-detail">Across released submissions</span>
+    </div>
+    <div class="metric-card">
+      <div class="metric-card-header">
+        <span class="metric-label">Average marks</span>
+        <div class="metric-icon-wrap"><i class="bi bi-bar-chart"></i></div>
+      </div>
+      <strong class="metric-value">{% if average_marks != None %}{{ average_marks|floatformat:1 }}{% else %}0.0{% endif %}</strong>
+      <span class="metric-detail">Average per released quiz</span>
+    </div>
+  </div>
+{% endif %}
+
+<section class="surface p-0 overflow-hidden">
+{% if items %}
+  <div class="table-responsive">
+    <table class="table">
+      <thead>
+        <tr>
+          {% if items.0.username %}
+            <th>User</th>
+            <th>Email</th>
+            <th>Role</th>
+            {% if user.role == 'ADMIN' or user.is_superuser %}<th class="text-end">Actions</th>{% endif %}
+          {% elif items.0.name %}
+            <th>Course</th>
+            <th>Description</th>
+            {% if user.role != 'STUDENT' and user.role != 'FACULTY' %}<th>Faculty</th>{% endif %}
+            {% if user.role != 'STUDENT' %}<th>Enrolled students</th>{% endif %}
+            {% if user.role != 'STUDENT' %}<th>Status</th>{% endif %}
+            {% if user.role == 'FACULTY' %}<th>Admin suggestion</th>{% endif %}
+            <th class="text-end">Action</th>
+          {% elif items.0.quiz %}
+            {% if user.role == 'STUDENT' %}
+              <th>Quiz</th>
+              <th>Submitted</th>
+              <th>Result</th>
+            {% else %}
+              <th>Student</th>
+              <th>Quiz</th>
+              <th>Status</th>
+              <th class="text-end">Action</th>
+            {% endif %}
+          {% elif items.0.title %}
+            <th>Quiz</th>
+            <th>Course</th>
+            <th>Duration</th>
+            <th>Status</th>
+            <th class="text-end">Action</th>
+          {% elif items.0.text %}
+            <th>Question</th>
+            <th>Course</th>
+            <th>Type</th>
+            <th class="text-end">Points</th>
+            {% if user.role == 'ADMIN' or user.is_superuser or user.role == 'FACULTY' %}<th class="text-end">Actions</th>{% endif %}
+          {% else %}
+            <th>Item</th>
+          {% endif %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in items %}
+          <tr>
+            {% if item.username %}
+              <td>
+                <div class="d-flex align-items-center gap-2">
+                  <div class="profile-mark" style="width:28px;height:28px;font-size:0.75rem;">{{ item.username|first|upper }}</div>
+                  <span class="fw-semibold">{{ item.username }}</span>
+                </div>
+              </td>
+              <td class="text-secondary">{{ item.email|default:'—' }}</td>
+              <td>
+                {% if item.role == 'ADMIN' or item.is_superuser %}
+                  <span class="status-badge pending"><i class="bi bi-shield-lock"></i> {{ item.get_role_display }}</span>
+                {% elif item.role == 'FACULTY' %}
+                  <span class="status-badge success"><i class="bi bi-person-badge"></i> {{ item.get_role_display }}</span>
+                {% else %}
+                  <span class="status-badge neutral"><i class="bi bi-mortarboard"></i> {{ item.get_role_display }}</span>
+                {% endif %}
+              </td>
+              {% if user.role == 'ADMIN' or user.is_superuser %}
+                <td class="text-end text-nowrap">
+                  <a class="btn btn-sm btn-outline-primary" href="{% url 'users:edit' item.pk %}"><i class="bi bi-pencil-square"></i> Edit</a>
+                  {% if not item.is_superuser and item.pk != user.pk %}<a class="btn btn-sm btn-outline-danger" href="{% url 'users:delete' item.pk %}"><i class="bi bi-trash"></i> Delete</a>{% endif %}
+                </td>
+              {% endif %}
+            {% elif item.name %}
+              <td>
+                <a class="fw-semibold text-decoration-none d-inline-flex align-items-center gap-2" href="{% url 'courses:detail' item.pk %}">
+                  <i class="bi bi-journal-text text-teal"></i>
+                  {{ item.name }}
+                </a>
+              </td>
+              <td class="text-secondary">{{ item.description|default:'—'|truncatechars:70 }}</td>
+              {% if user.role != 'STUDENT' and user.role != 'FACULTY' %}<td><span class="badge text-bg-light border">{{ item.faculty.get_full_name|default:item.faculty.username }}</span></td>{% endif %}
+              {% if user.role != 'STUDENT' %}<td>{{ item.enrolled_student_count }}</td>{% endif %}
+              {% if user.role != 'STUDENT' %}
+                <td>
+                  {% if item.is_approved %}
+                    <span class="status-badge success"><i class="bi bi-check-circle"></i> Approved</span>
+                  {% else %}
+                    <span class="status-badge pending"><i class="bi bi-hourglass-split"></i> Awaiting review</span>
+                  {% endif %}
+                </td>
+              {% endif %}
+              {% if user.role == 'FACULTY' %}
+                <td class="text-secondary">
+                  {% if item.admin_suggestion %}
+                    <div class="text-dark">{{ item.admin_suggestion|truncatechars:120 }}</div>
+                  {% else %}
+                    <span class="text-muted">—</span>
+                  {% endif %}
+                </td>
+              {% endif %}
+              <td class="text-end text-nowrap">
+                {% if user.role == 'FACULTY' %}
+                  <a class="btn btn-sm btn-outline-primary" href="{% url 'courses:edit' item.pk %}">
+                    <i class="bi bi-pencil-square"></i> Edit
+                  </a>
+                  <a class="btn btn-sm btn-outline-danger" href="{% url 'courses:delete' item.pk %}">
+                    <i class="bi bi-trash"></i> Delete
+                  </a>
+                {% else %}
+                  <a class="btn btn-sm btn-outline-secondary" href="{% url 'courses:detail' item.pk %}">
+                    View course <i class="bi bi-arrow-right"></i>
+                  </a>
+                {% endif %}
+              </td>
+            {% elif item.quiz %}
+              {% if user.role == 'STUDENT' %}
+                <td class="fw-semibold">{{ item.quiz.title }}</td>
+                <td class="text-secondary">{{ item.started_at|date:'M j, Y · g:i A' }}</td>
+                <td>
+                  {% if item.is_released %}
+                        {% if item.current_score > 0 %}
+                          <span class="submission-state released"><i class="bi bi-check-circle-fill"></i> Score: {{ item.current_score }} pts</span>
+                        {% else %}
+                          <span class="submission-state failed" style="background:#fef2f2!important;color:#b91c1c!important;border:1px solid #fecaca!important;"><i class="bi bi-x-circle-fill"></i> Score: {{ item.current_score }} pts</span>
+                        {% endif %}
+                  {% else %}
+                    <span class="submission-state pending"><i class="bi bi-clock-history"></i> Awaiting faculty grade</span>
+                  {% endif %}
+                </td>
+              {% else %}
+                <td class="fw-semibold">{{ item.student.get_full_name|default:item.student.username }}</td>
+                <td>{{ item.quiz.title }}</td>
+                <td>
+                  {% if item.is_released %}
+                    {% if item.current_score > 0 %}
+                      <span class="submission-state released"><i class="bi bi-check-all"></i> Released ({{ item.current_score }} pts)</span>
+                    {% else %}
+                      <span class="submission-state failed" style="background:#fef2f2!important;color:#b91c1c!important;border:1px solid #fecaca!important;"><i class="bi bi-x-circle-fill"></i> Released ({{ item.current_score }} pts)</span>
+                    {% endif %}
+                  {% elif item.is_graded %}
+                    <span class="submission-state pending"><i class="bi bi-check"></i> Graded · Not released</span>
+                  {% else %}
+                    <span class="submission-state pending"><i class="bi bi-hourglass-split"></i> Needs grading</span>
+                  {% endif %}
+                </td>
+                <td class="text-end">
+                  {% if grade_attempts %}
+                    <a class="btn btn-sm btn-outline-primary" href="{% url 'grading:grade' item.pk %}">
+                      <i class="bi bi-pencil-square"></i> Review
+                    </a>
+                  {% endif %}
+                </td>
+              {% endif %}
+            {% elif item.title %}
+              <td class="fw-semibold">{{ item.title }}</td>
+              <td>{{ item.course.name }}</td>
+              <td class="text-secondary">{{ item.time_limit_minutes }} mins</td>
+              <td>
+                {% if item.is_published %}
+                  <span class="status-badge success"><i class="bi bi-check-circle"></i> Published</span>
+                {% else %}
+                  <span class="status-badge neutral"><i class="bi bi-file-earmark"></i> Draft</span>
+                {% endif %}
+              </td>
+              <td class="text-end">
+                {% if item.is_published and user.role == 'STUDENT' %}
+                  {% if item.pk in attempted_quiz_ids %}
+                    <a class="btn btn-sm btn-outline-secondary" href="{% url 'grading:results' %}">
+                      <i class="bi bi-check2"></i> Submitted
+                    </a>
+                  {% else %}
+                    <a class="btn btn-sm btn-primary" href="{% url 'grading:take' item.pk %}">
+                      <i class="bi bi-play-fill"></i> Start quiz
+                    </a>
+                  {% endif %}
+                {% endif %}
+                {% if not item.is_published %}
+                  {% if user.role == 'ADMIN' or user.is_superuser or item.course.faculty_id == user.id %}
+                    <form method="post" action="{% url 'quizzes:publish' item.pk %}" class="d-inline">
+                      {% csrf_token %}
+                      <button class="btn btn-sm btn-outline-primary" type="submit">
+                        <i class="bi bi-upload"></i> Publish
+                      </button>
+                    </form>
+                  {% endif %}
+                {% endif %}
+                {% if user.role == 'ADMIN' or user.is_superuser or item.course.faculty_id == user.id %}
+                  <a class="btn btn-sm btn-outline-primary" href="{% url 'quizzes:edit' item.pk %}"><i class="bi bi-pencil-square"></i> Edit</a>
+                  <a class="btn btn-sm btn-outline-danger" href="{% url 'quizzes:delete' item.pk %}"><i class="bi bi-trash"></i> Delete</a>
+                {% endif %}
+              </td>
+            {% elif item.text %}
+              <td class="fw-semibold">{{ item.text|truncatechars:90 }}</td>
+              <td>{{ item.course.name }}</td>
+              <td>
+                {% if item.kind == 'MCQ' %}
+                  <span class="status-badge neutral"><i class="bi bi-ui-checks"></i> Multiple Choice</span>
+                {% elif item.kind == 'MULTI_SELECT' %}
+                  <span class="status-badge neutral"><i class="bi bi-ui-checks-grid"></i> Multiple Select</span>
+                {% elif item.kind == 'TRUE_FALSE' %}
+                  <span class="status-badge neutral"><i class="bi bi-toggle-on"></i> True / False</span>
+                {% elif item.kind == 'BLANKS' %}
+                  <span class="status-badge neutral"><i class="bi bi-input-cursor-text"></i> Fill in the Blank</span>
+                {% else %}
+                  <span class="status-badge neutral"><i class="bi bi-textarea-t"></i> Written</span>
+                {% endif %}
+              </td>
+              <td class="text-end fw-bold text-teal">{{ item.points }} pt{{ item.points|pluralize }}</td>
+              {% if user.role == 'ADMIN' or user.is_superuser or item.course.faculty_id == user.id %}
+                <td class="text-end text-nowrap">
+                  <a class="btn btn-sm btn-outline-primary" href="{% url 'questions:edit' item.pk %}"><i class="bi bi-pencil-square"></i> Edit</a>
+                  <a class="btn btn-sm btn-outline-danger" href="{% url 'questions:delete' item.pk %}"><i class="bi bi-trash"></i> Delete</a>
+                </td>
+              {% endif %}
+            {% else %}
+              <td>{{ item }}</td>
+            {% endif %}
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% else %}
+  <div class="empty-state">
+    <div class="empty-state-icon"><i class="bi bi-folder2-open"></i></div>
+    <h2>Nothing here yet</h2>
+    <p>When you have {{ title|lower }}, they’ll be neatly listed here.</p>
+    {% if create_url %}
+      <div class="mt-3">
+        <a class="btn btn-sm btn-primary" href="{% url create_url %}">
+          <i class="bi bi-plus-lg"></i>
+          {% if title == 'Quizzes' %}Create quiz{% elif title == 'Courses' %}Create course{% elif title == 'Questions' %}Create question{% elif title == 'Users' %}Create user{% else %}Create new{% endif %}
+        </a>
+      </div>
+    {% endif %}
+  </div>
+{% endif %}
+</section>
+{% endblock %}

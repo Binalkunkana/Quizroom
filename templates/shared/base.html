@@ -1,0 +1,167 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Quiz system{% endblock %} · Quizroom</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="{% static 'css/site.css' %}" rel="stylesheet">
+</head>
+<body>
+
+{% if user.is_authenticated %}
+<div class="app-frame">
+  <aside class="app-sidebar">
+    <a class="sidebar-brand" href="{% url 'users:home' %}">
+      <span class="brand-mark">Q</span>
+      <span>Quizroom<small>Learning Portal</small></span>
+    </a>
+    <div class="sidebar-label">Navigation</div>
+    <nav class="sidebar-nav" aria-label="Main navigation">
+      <a class="side-link {% if request.resolver_match.url_name == 'home' %}active{% endif %}" href="{% url 'users:home' %}">
+        <i class="bi bi-grid-fill"></i>
+        <span>Overview</span>
+      </a>
+      {% if user.role == 'STUDENT' %}
+        <a class="side-link {% if request.resolver_match.app_name == 'courses' %}active{% endif %}" href="{% url 'courses:list' %}">
+          <i class="bi bi-mortarboard-fill"></i>
+          <span>Course catalog</span>
+        </a>
+        <a class="side-link {% if request.resolver_match.app_name == 'quizzes' or request.resolver_match.url_name == 'take' %}active{% endif %}" href="{% url 'quizzes:list' %}">
+          <i class="bi bi-card-checklist"></i>
+          <span>Available quizzes</span>
+        </a>
+        <a class="side-link {% if request.resolver_match.url_name == 'results' %}active{% endif %}" href="{% url 'grading:results' %}">
+          <i class="bi bi-clipboard-check-fill"></i>
+          <span>My submissions</span>
+        </a>
+      {% else %}
+        <a class="side-link {% if request.resolver_match.app_name == 'courses' %}active{% endif %}" href="{% url 'courses:list' %}">
+          <i class="bi bi-mortarboard-fill"></i>
+          <span>Courses</span>
+        </a>
+        {% if user.role != 'ADMIN' and not user.is_superuser %}
+          <a class="side-link {% if request.resolver_match.app_name == 'questions' %}active{% endif %}" href="{% url 'questions:list' %}">
+            <i class="bi bi-patch-question-fill"></i>
+            <span>Question bank</span>
+          </a>
+        {% endif %}
+        {% if user.role != 'ADMIN' and not user.is_superuser %}
+          <a class="side-link {% if request.resolver_match.app_name == 'quizzes' %}active{% endif %}" href="{% url 'quizzes:list' %}">
+            <i class="bi bi-card-checklist"></i>
+            <span>Quizzes</span>
+          </a>
+        {% endif %}
+        {% if user.role == 'FACULTY' %}
+          <a class="side-link {% if request.resolver_match.app_name == 'grading' %}active{% endif %}" href="{% url 'grading:attempts' %}">
+            <i class="bi bi-clipboard-check-fill"></i>
+            <span>Submissions</span>
+          </a>
+        {% endif %}
+        {% if user.role == 'ADMIN' or user.is_superuser %}
+          <a class="side-link {% if request.resolver_match.app_name == 'users' %}active{% endif %}" href="{% url 'users:list' %}">
+            <i class="bi bi-people-fill"></i>
+            <span>Users</span>
+          </a>
+        {% endif %}
+      {% endif %}
+    </nav>
+    <div class="sidebar-bottom">
+      <div class="profile-mark">{{ user.username|first|upper }}</div>
+      <div class="profile-copy">
+        <strong>{{ user.get_full_name|default:user.username }}</strong>
+        <span>{{ user.get_role_display }}</span>
+      </div>
+      <form method="post" action="{% url 'users:logout' %}">
+        {% csrf_token %}
+        <button class="logout-link" type="submit" title="Log out">
+          <i class="bi bi-box-arrow-right"></i>
+        </button>
+      </form>
+    </div>
+  </aside>
+  <div class="app-content">
+    <header class="topbar">
+      <div>
+        <div class="topbar-caption">{{ user.get_role_display }} Workspace</div>
+        <div class="topbar-title">{% block page_label %}Quizroom{% endblock %}</div>
+      </div>
+      <div class="topbar-user">
+        <span class="user-badge">
+          <i class="bi bi-person-circle"></i>
+          {{ user.username }}
+        </span>
+        <form method="post" action="{% url 'users:logout' %}">
+          {% csrf_token %}
+          <button class="btn btn-sm btn-outline-secondary" type="submit">
+            <i class="bi bi-box-arrow-right"></i> Sign out
+          </button>
+        </form>
+      </div>
+    </header>
+    <nav class="mobile-nav" aria-label="Mobile navigation">
+      <a class="{% if request.resolver_match.url_name == 'home' %}active{% endif %}" href="{% url 'users:home' %}">Overview</a>
+      <a class="{% if request.resolver_match.app_name == 'courses' %}active{% endif %}" href="{% url 'courses:list' %}">Courses</a>
+      {% if user.role == 'FACULTY' %}
+        <a class="{% if request.resolver_match.app_name == 'questions' %}active{% endif %}" href="{% url 'questions:list' %}">Questions</a>
+      {% endif %}
+      {% if user.role != 'ADMIN' and not user.is_superuser %}
+        <a class="{% if request.resolver_match.app_name == 'quizzes' %}active{% endif %}" href="{% url 'quizzes:list' %}">Quizzes</a>
+      {% endif %}
+      {% if user.role == 'STUDENT' %}
+        <a class="{% if request.resolver_match.url_name == 'results' %}active{% endif %}" href="{% url 'grading:results' %}">Submissions</a>
+      {% elif user.role == 'FACULTY' %}
+        <a class="{% if request.resolver_match.app_name == 'grading' %}active{% endif %}" href="{% url 'grading:attempts' %}">Grading</a>
+      {% endif %}
+      {% if user.role == 'ADMIN' or user.is_superuser %}
+        <a class="{% if request.resolver_match.app_name == 'users' %}active{% endif %}" href="{% url 'users:list' %}">Users</a>
+      {% endif %}
+    </nav>
+    {% if messages %}
+      <div class="container-fluid pt-3">
+        {% for message in messages %}
+          <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+    <main class="page-shell">
+{% else %}
+<div class="auth-shell">
+  {% if messages %}
+    <div class="auth-card-wrap mb-3">
+      {% for message in messages %}
+        <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show" role="alert">
+          {{ message }}
+          <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+      {% endfor %}
+    </div>
+  {% endif %}
+  <main class="auth-card-wrap">
+{% endif %}
+
+    {% block content %}{% endblock %}
+
+{% if user.is_authenticated %}
+    </main>
+    <footer class="app-footer">
+      Quizroom Learning Portal <span>·</span> Courses, quizzes, and grading in one place
+    </footer>
+  </div>
+</div>
+{% else %}
+  </main>
+</div>
+{% endif %}
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
